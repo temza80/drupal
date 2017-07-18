@@ -1,0 +1,524 @@
+<?php
+
+
+ function add_article_init() {
+  drupal_add_library('system', 'drupal.ajax');
+  
+}
+function add_article_block_info() {
+  $blocks['test_json'] = array('info' => 'Test_json');
+  $blocks['news_tape'] =array(
+    'info' => t('Лента управления черновиками'),
+    'region' => 'content',
+    'weight' => 1,
+    'status' => 1,
+    'visibility' => 'BLOCK_VISIBILITY_LISTED',
+    'pages' => "/add_article2",
+    'cache' => 'DRUPAL_NO_CACHE',
+  );
+  return $blocks;
+}
+ 
+/**
+ * Реализация hook_block_view();
+ */
+function add_article_block_view($delta = '') {
+  $block = array();
+ 
+  if ($delta == 'test_json') {
+    $block['subject'] = 'Test json';
+    $block['content'] = '<div id="test-json"></div>';
+ 
+    // подключаем необходимые ajax библиотеки
+    drupal_add_library('system', 'drupal.ajax');
+ //   drupal_add_library('system', 'jquery.form');
+  }
+    if ($delta == 'news_tape') {
+    $block['subject'] = 'News tape';
+    $block['content'] =theme('tape_news');} /* '<div id="newsline"><div id="back_div" style="float:left"><a id="back_tape"> <img src="/sites/default/files/my/arrow-sharp-pink-left.jpg" height="180px"; width="30px";>
+    </a></div>'.'
+    <div id="news_tape" style="position:relative; width: 80%; height: 180px; overflow: hidden;float: left;">
+    </div>
+    <div id="forward_div"><a id="forward_tape" style="position:absolute; right:1px; " ><img src="/sites/default/files/my/arrow-sharp-pink-right.jpg" height="180px"; width="30px";></a></div></div>';}// с двух сторон имэджи
+ //theme("tape_news");}*/
+  $path=drupal_get_path('module', 'add_article');
+ drupal_add_js(drupal_get_path('module', 'add_article') . '/link_ajax.js', array('scope' => 'footer'));
+ drupal_add_js(array('add_article' => array('basepath' => $path )), 'setting');
+ drupal_add_js(drupal_get_path('module', 'add_article') . '/sliders2.js', array('scope' => 'footer'));
+ drupal_add_js(drupal_get_path('module', 'add_article') . '/plugins.js', array('scope' => 'footer'));
+ drupal_add_js(array('sliders' => array('basepath' => $path )), 'setting');
+
+
+  return $block;
+}
+function add_article_menu(){ 
+ $items = array();
+ $items['add_article2'] = array(
+        'title'  => 'Add article2',
+        'page callback'    => '_get_text_and_form',
+      'page arguments'   => array('add_article_form'),
+        'access arguments' => array('create article content'),
+    );
+
+  $items['add_article/prevlooks'] = array(
+  
+    'page callback'     => 'return_drafts',
+   // 'page arguments'   => array(2),
+   
+    'type'              => MENU_CALLBACK,
+    'access arguments'  => array('access content'),
+    'delivery callback' => 'moduleName_ajax'
+  );
+   $items['add_article/add_article'] = array(
+    'title' => 'article',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10
+  );
+    $items['add_article/settings'] = array(
+    'title' => 'settings',
+    'type' => MENU_LOCAL_TASK,
+    'page callback'    => 'drupal_get_form',
+      'page arguments'   => array('add_art_settings_form'),
+    'access arguments' => array('create article content'),
+  );
+   $items['tapenews'] = array(
+        'title'  => 'Tape',
+        'page callback'    => 'sliders_return_drafts',
+        'type'              => MENU_CALLBACK,
+        'access arguments' => array('create article content'),
+        'delivery callback' => 'moduleName_ajax'
+    );
+      $items['tapedel'] = array(
+        'title'  => 'Tapedel',
+        'page callback'    => 'sliders_delete_draft',
+        'type'              => MENU_CALLBACK,
+        'access arguments' => array('create article content'),
+        'delivery callback' => 'moduleName_ajax'
+    );   
+    return $items;
+}
+
+ function _get_text_and_form($text)
+ {
+	  drupal_add_css(drupal_get_path('module', 'add_article') . '/css/styles.css');
+	 //drupal_add_library('system', 'drupal.ajax');
+    //drupal_add_library('system', 'jquery.form');
+   // db_truncate('addart')->execute();
+    $_SESSION['offset']=1;
+	 //print_r ($_SESSION['text']);//!!!!!!!!!!!!!!!
+	// watchdog("add_art",print_r(drupal_get_form($text)));
+if(isset($_SESSION['text'])) $vars['text']=$_SESSION['text'];
+else $vars['text']='';
+if(isset($_SESSION['title'])) $vars['title']=$_SESSION['title'];
+else $vars['title']='';
+$block = array(
+  'text' => array(
+    '#markup' => theme('page_with_form',$vars)
+  ),
+  "form" => array(
+  'form' => drupal_get_form($text),
+  
+    '#prefix' => '<div id="add_art_form_div">', 
+    '#suffix' => '</div>',
+  ),
+  
+);
+return render($block);
+ }
+function add_article_settings_form($form, &$form_state)
+{
+$form = array();
+    $form['count_drafts'] = array(
+        '#title'         => t('Count Drafts'),
+        '#description'   => t('Preferable amount of maximum issues of drafts'),
+        '#type'          => 'textfield',
+        '#default_value' => 27,
+        '#required'      => true,
+        '#id' =>"add_article_amount_drafts",    
+    );
+
+  
+ //   $form['preview']=array('#markup'=>'<button id="add_art_preview"> preview </button>',);
+    $form['submit'] = array(
+        '#type'  => 'submit',
+        '#value' => "Submit settings",
+        '#submit'=>array('_add_art_settings_form_submit'),
+        
+    );	
+    return $form;
+}
+function add_article_form($form, &$form_state)
+{
+	
+$path=drupal_get_path('module', 'add_article');
+	
+	  $form = array();
+    $form['add_art_title'] = array(
+        '#title'         => t('Title'),
+        '#description'   => t('Print on title'),
+        '#type'          => 'textfield',
+        '#default_value' => $_SESSION['title']  ? $_SESSION['title']  : '',
+        '#required'      => true,
+        '#id' =>"article_title_add_art",    
+    );
+
+    $form['add_art_text'] = array(
+    '#prefix'=>"<div id='1a'>",
+    '#suffix'=>"</div>",
+        '#title'         => t('Body of article'),
+        '#description'   => t('Put your thoughts here'),
+        '#type'          => 'text_format',
+        '#default_value' => $_SESSION['text']  ? $_SESSION['text']  : '',
+        //'#format'		 =>'full_html',
+        '#required'      => true,
+        '#id' =>"article_text_add_art",    
+    );
+    $path2=drupal_get_path('module', 'add_article')."/img";
+    $form['image'] = array(
+  '#title' => t('Image'),
+  '#type' => 'managed_file',
+  '#description' => t('The uploaded image will be displayed on this page using the image style choosen below.'),
+
+  '#upload_location' =>'public://image_example_images/',
+  '#upload_validators' => array(
+    'file_validate_extensions' => array('gif png jpg jpeg')
+     
+),
+);
+ //   $form['preview']=array('#markup'=>'<button id="add_art_preview"> preview </button>',);
+    $form['submit'] = array(
+        '#type'  => 'submit',
+        '#value' => "Submit article",
+        '#submit'=>array('_add_art_form_submit'),
+        
+    );
+
+ $form['preview'] = array(
+        '#type'  => 'submit',
+        "#name" => 'preview_submit',
+        '#value' => "Preview",
+        //'#attributes' => array('onclick' => 'document.getElementById("article_preview").innerHTML=document.getElementById("edit-add-art-text-value").value; return (false);'),
+         '#ajax' => array(
+      'callback' => '_add_art_form_submit_preview',
+     
+    ),
+  
+    );        
+    $form['link_back'] = array(
+    '#markup' => "<span id='prev_look' class='red_arrows'><img src= '$path/img/ArrowLeftRedMedium.gif'> </span>",
+    );
+     $form['link_forward'] = array(
+   '#markup' => "<span id='forward_look' class='red_arrows'> <img src= '$path/img/ArrowRightRedMedium.gif'></span>",
+    );
+/* $form['view_drafts_back'] = array(
+        '#type'  => 'submit',
+        "#name" => 'back_drafts_submit',
+        '#value' => "Back drafts",
+        //'#attributes' => array('onclick' => 'return (false);'),
+        '#ajax' => array(
+      'callback' => '_add_art_form_submit_drafts_back',
+     
+    ),
+       
+        
+    );   
+    $form['view_drafts_forward'] = array(
+        '#type'  => 'submit',
+        "#name" => 'forward_drafts_submit',
+        '#value' => "Forward drafts",
+        //'#attributes' => array('onclick' => 'document.getElementById("article_preview").innerHTML=document.getElementById("edit-add-art-text-value").value; return (false);'),
+            '#ajax' => array(
+      'callback' => '_add_art_form_submit_drafts_forward',
+       'wrapper' => '#1a',
+      'method' => 'replace',
+    ),*/
+        
+    //);   
+//watchdog("add_art",print_r($form));
+    return $form;
+}
+/*
+function add_art_form_validate($form, &$form_state)
+{
+    $url = $form_state['values']['url'];
+
+    if (fopen($url, "r")) {
+        libxml_use_internal_errors(true);
+        $rss_feed = simplexml_load_file($url);
+        if (empty($rss_feed)) {
+            form_set_error('url', t('URL is invalid!'));
+        }
+    } else {
+        form_set_error('url', t('URL is invalid!'));
+    }
+}
+*/
+function get_images($data)
+{
+	$images = array();
+preg_match_all('/(img|src)=("|\')[^"\'>]+/i', $data, $media);
+unset($data);
+$data = preg_replace('/(img|src)("|\'|="|=\')(.*)/i', "$3", $media[0]);
+ 
+foreach ($data as $url) {
+    $info = pathinfo($url);
+    if (isset($info['extension'])) {
+        if (($info['extension'] == 'jpg') ||
+                ($info['extension'] == 'jpeg') ||
+                ($info['extension'] == 'gif') ||
+                ($info['extension'] == 'png'))
+            array_push($images, $url);
+    }
+}
+return $images;
+}
+function _add_art_form_submit($form, &$form_state)
+{
+$_SESSION['text'] =  null;
+$_SESSION['title'] = null;
+
+  $node = new stdClass();
+  $node->type = 'article';
+  node_object_prepare($node);
+
+  $node->title    = $form_state['values']['add_art_title'].' on ' . date('c');
+  $node->language = LANGUAGE_NONE;
+ $text=$form_state['values']['add_art_text']['value'];
+
+  $node->body[$node->language][0]['value']   =$text;
+  $node->body[$node->language][0]['summary'] = text_summary($text);
+  $node->body[$node->language][0]['format']  = 'filtered_html';
+
+
+  $node->path = array('alias' => $form_state['values']['add_art_title']);
+//node_preview($node);
+ // node_save($node);
+ //$form_state['rebuild'] = TRUE;
+
+
+ // drupal_goto('/add_article',array('par'=>$text));//http://drupal.stackexchange.com/questions/78289/drupal-7-two-submit-buttons-and-custom-field-validation
+}
+function _add_art_form_submit_preview($form, &$form_state)
+{
+
+ 
+ $title=$form_state['values']['add_art_title'];
+ $text=$form_state['values']['add_art_text']['value'];
+
+
+//$form_state['storage']['page_one_values'] = $form_state['values'];
+$_SESSION['text'] =  $text;
+$_SESSION['title'] =  $title;
+//$form_state['rebuild'] = TRUE;
+global $user;
+$uid = $user->uid;
+
+ $file = file_load($form_state['values']['image']);
+if($form_state['values']['image']!=0) 
+{
+	
+
+  $data = db_select('file_managed', 'f')
+    ->fields('fid')
+    ->condition('uri', $file->uri,'=')
+    ->execute()
+    ->fetchObject();
+    
+  if (is_object($data)) 
+{
+$commands[] = ajax_command_alert('#page-title', 'Файл с подобным именем уже существует. Переименуйте файл для добавления.');
+$img_path=$file->uri;	
+}
+else{
+    watchdog("add_article",'1!');
+ //$data = db_query('SELECT * FROM file_managed WHERE uri='.$file->uri)->fetchAll();
+
+
+ $file->status = FILE_STATUS_PERMANENT;
+  //file_usage_add($file, 'add_article', 'form', 'add_article_form');
+  file_save($file);
+
+ $img_path= file_create_url($file->uri); 
+}
+
+
+ $text="<img src='".$img_path."'>".$text;
+}
+$preview=$title.'<br>'.$text;
+$record = array(
+		'title'       => $form_state['values']['add_art_title'],
+		'text'        => $text,
+		'user' => $uid,
+		'created_at' => time(),
+	);
+drupal_write_record('addarticle', $record);
+
+$max=variable_get('add_art_maximum_drafts')? variable_get('add_art_maximum_drafts') : 27;
+$query="DELETE  from {addarticle} 
+    where user = $uid and created_at not in (select created_at from (select * from {addarticle}   order by created_at desc limit $max )s  )";//ша за сselect a.created_ad from (
+
+
+ db_query($query);	//здесь юзер 
+ 
+$commands[] = ajax_command_html('#article_preview', $preview);
+$commands[] = ajax_command_invoke('#edit-add-art-text-value', 'val', array($text));
+$commands[] = ajax_command_invoke('#article_preview', 'trigger', array('change'));
+ return array('#type' => 'ajax', '#commands' => $commands);
+
+}
+/*function _add_art_form_submit_drafts_back($form, &$form_state)
+{
+	
+
+	$_SESSION['offset']++;// не туда залез офсетами = а нужна функция отдельная грамотные офсеты и аякс в этой функции вертать(?)
+$arr=return_drafts();
+$commands[] = ajax_command_invoke('#article_title_add_art', 'val', array($arr[0]));
+$commands[] = ajax_command_invoke('#edit-add-art-text-value', 'val', array($arr[1]));
+  return array('#type' => 'ajax', '#commands' => $commands);
+	
+}
+function _add_art_form_submit_drafts_back2($arg)
+{
+
+$commands=return_drafts();
+$commands=array();
+$commands[] = ajax_command_html('#json_test', 'New page title');
+$commands[] = ajax_command_alert('!');
+  //return
+   $page=array('#type' => 'ajax', '#commands' => $commands);
+   ajax_render($page);
+	
+}
+
+function _add_art_form_submit_drafts_forward($form, &$form_state)
+{
+		if($_SESSION['offset']>0) $_SESSION['offset']--;
+$arr=return_drafts();
+$commands[] = ajax_command_invoke('#article_title_add_art', 'val', array($arr[0]));
+$commands[] = ajax_command_invoke('#edit-add-art-text-value', 'val', array($arr[1]));
+  return array('#type' => 'ajax', '#commands' => $commands);
+}
+*/
+
+ function sliders_return_drafts()
+  {
+	  $return=array();
+	  
+	try{
+	if (isset($_GET['id']))
+	 if($_GET['id']!=-1)$query="SELECT * FROM {addarticle} a GROUP BY a.id DESC LIMIT 15 OFFSET ". intval($_GET['id']);
+	else $query="SELECT * FROM {addarticle} a  GROUP BY a.id DESC LIMIT 1";
+	$data = db_query($query)->fetchAll();
+
+foreach($data as $item) {
+$ims=get_images($item->text);
+ $return[]=$item->title;
+ $return[]= "<img class='teaser_image' src='". $ims[0]."'>".truncate_utf8(strip_tags($item->text),100, FALSE, TRUE); 
+ $return[]=$item->text;
+ $return[]=$item->id;
+
+}
+
+ //$commands[] = ajax_command_invoke('#article_title_add_art', 'val', array($ret_title));
+//$commands[] = ajax_command_invoke('#edit-add-art-text-value', 'val', array($ret_text));
+  //watchdog("add_art", print_r($_POST));
+  return $return;
+}catch (PDOException $e) {
+	//watchdog("sliders",$e->getMessage());
+  return "The user could not be added.<br>".$e->getMessage();
+}
+
+}
+ function sliders_delete_draft()
+  {
+	  $return=array();
+	  
+	try{
+	if (isset($_GET['id']))
+	 if($_GET['id']!=-1)
+	 {
+		 
+$num_deleted = db_delete('addarticle')
+  ->condition('id', intval($_GET['id']))
+  ->execute();
+		 
+	return $num_deleted;
+	}
+	else return 0; 
+}catch (PDOException $e) {
+	//watchdog("sliders",$e->getMessage());
+  return "The user could not be deleted.<br>".$e->getMessage();
+}
+
+}
+ function return_drafts()
+  {
+	    if($_GET['dir']=='forward' && $_SESSION['offset']>0) $_SESSION['offset']--;
+	    else if ($_GET['dir']=='back' && $_SESSION['offset']<20) $_SESSION['offset']++;
+	  	global $user;
+$uid = $user->uid;
+	if(!isset($_SESSION['offset'])) $_SESSION['offset']=1;
+	$query="SELECT a.title, a.text FROM {addarticle} a GROUP BY a.id DESC LIMIT 1 OFFSET ". $_SESSION['offset'];//WHERE a.user = :user 
+	$title_and_text = db_query($query)->fetchAll();//, array(":user" => $uid)
+	$commands = array();
+foreach($title_and_text as $item) {
+
+ $ret_title=$item->title;
+ $ret_text=$item->text;
+}
+
+ //$commands[] = ajax_command_invoke('#article_title_add_art', 'val', array($ret_title));
+//$commands[] = ajax_command_invoke('#edit-add-art-text-value', 'val', array($ret_text));
+  //watchdog("add_art", print_r($_POST));
+  return array( $ret_title, $ret_text,$_SESSION['offset']);
+}
+function add_article_theme()
+{
+	
+	return array(
+		
+		'page_with_form' => array(
+			'variables' => array(
+				'items' => NULL
+			),
+			'template'  => 'page-with-form',
+			'path' => drupal_get_path('module', 'add_article').'/theme'
+		),
+		'tape_news' => array(
+			'variables' => array(
+				'items' => NULL
+			),
+			'template'  => 'tape_news',
+			'path' => drupal_get_path('module', 'add_article').'/theme'
+		)
+	);
+}
+
+
+
+/**
+ * Renders a JSON array.
+ */
+function moduleName_ajax($pageviews) {
+ 
+  // Tell the browser to expect JSON data.
+  // @see https://api.drupal.org/api/drupal/includes!bootstrap.inc/function/drupal_add_http_header/7
+  drupal_add_http_header('Content-Type', 'application/json');
+ 
+  // Output the JSON result
+  // @see https://api.drupal.org/api/drupal/includes!common.inc/function/drupal_json_output/7
+  print drupal_json_output($pageviews);
+ 
+  // Perform end-of-request tasks.
+  // @see https://api.drupal.org/api/drupal/includes!common.inc/function/drupal_page_footer/7
+  drupal_page_footer();
+}
+function _add_art_settings_form_submit($form,&$form_state) {
+  
+  if (intval($form_state['values']['count_drafts'])) {
+    variable_set('add_art_maximum_drafts', intval($form_state['values']['count_drafts']));
+    
+    drupal_set_message(t('Your configuration has been saved.'));
+  }
+  else drupal_set_message(t('Put the integer value!'));
+}

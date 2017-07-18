@@ -1,0 +1,15 @@
+#add_art_form_div, #article_preview {
+position: relative;
+clear: left;
+}
+#back_div, #forward_div
+{
+width: 30px;
+}
+.teaser_image{
+width: 33px;
+height: 33px;
+}
+.news_tape_div{
+font-size: 73%;
+}

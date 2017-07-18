@@ -1,0 +1,24 @@
+<?php
+/*function add_article_uninstall()
+{
+	drupal_flush_all_caches();
+    //cache_clear_all('govno', 'cache', TRUE);
+   
+    menu_rebuild();
+}
+*/
+function add_article_schema()
+{
+	$schema['addarticle'] = array(
+		'fields'      => array(
+			'id'         => array('type' => 'serial',  'size'=>'normal',  'not null' => TRUE),
+			'title'       => array('type' => 'varchar', 'length' => 2255, 'not null' => TRUE),
+			'text'        => array('type' => 'text', 'length' => 15000, 'not null' => TRUE),
+			'user' 		  => array('type' => 'int', 'not null' => TRUE),
+			'created_at' => array('type' => 'int', 'not null' => TRUE),
+		),
+		'primary key' => array('id')
+	);
+
+	return $schema;
+}

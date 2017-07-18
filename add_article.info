@@ -1,0 +1,7 @@
+name = add_article
+description = Adding article from not admin part.
+package = «my_own»
+core = 7.x
+version = «7.x-1.0»
+configure = admin/config/add_article
+files[]= add_article.module
